@@ -1,0 +1,63 @@
+#!/usr/bin/php
+<?php
+#%# family=auto
+#%# capabilities=autoconf
+	require_once(dirname(__FILE__).'/ts3admin.class.php');
+	/*
+	 Munin TeamSpeak3 User Count Plugin
+	 AUTHOR  : k725
+	-----------------------------------------
+	 REQUIRE : php5-cli
+	 NoLogin : b_virtualserver_select, b_virtualserver_info_view
+	 USING   : ln -s /foo/bar/ts3u_ /etc/munin/plugins/ts3u_[ServerPort]
+	*/
+
+	// --------------------------------------
+	$Address   = 'localhost';
+	$QueryPort = 10011;
+	$UseLogin  = true;
+	$UserName  = 'serveradmin';
+	$PassWord  = '';
+	// --------------------------------------
+
+	function ts3Port() {
+		return str_replace('ts3u_', '', basename($_SERVER['SCRIPT_FILENAME']));
+	}
+
+	function ts3Get($adr, $port, $login, $user, $pass) {
+		$ts3 = new ts3admin($adr, $port);
+		if ($ts3->getElement('success', $ts3->connect())) {
+			if ($login) {
+				$ts3->login($user, $pass);
+			}
+			$ts3->selectServer(ts3Port());
+			$tmp = $ts3->serverInfo();
+			if ($login) {
+				$ts3->logout();
+			}
+			return ($tmp['data']['virtualserver_clientsonline'] - $tmp['data']['virtualserver_queryclientsonline']);
+		} else {
+			return 0;
+		}
+	}
+
+	if (isset($argv[1]) && $argv[1] == 'autoconf') {
+		echo "yes\n";
+		exit;
+	}
+
+	if(isset($argv[1]) && $argv[1] == 'config') {
+		echo 'graph_title Number of TeamSpeak3 Users Port ' . ts3Port() . "\n";
+		echo "graph_args --base 1000 -l 0\n";
+		echo "graph_vlabel number of users\n";
+		echo 'graph_info The graph shows the number of users in the TeamSpeak3 server Port ' . ts3Port() . "\n";
+		echo "graph_category TeamSpeak3\n";
+
+		echo "TeamSpeak3.label users\n";
+		echo "TeamSpeak3.draw LINE2\n";
+		echo "TeamSpeak3.info The current number of users\n";
+		exit;
+	}
+
+	echo 'TeamSpeak3.value ' . ts3Get($Address, $QueryPort, $UseLogin, $UserName, $PassWord) . "\n";
+	exit;
